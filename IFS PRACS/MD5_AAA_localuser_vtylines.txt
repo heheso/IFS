@@ -1,0 +1,42 @@
+Create the following topology and  Configure OSPF MD5authentication 
+ Configure a local user account on R1 and configure authenticate on the console and vty lines
+using local AAA. 
+ Verify local AAA authentication from
+the R1 console and the PC0 client and PC1 Client
+
+========================= Configure OSPF MD5 Authentication on R1 ========================
+R1(config)
+
+router ospf 1
+network 192.168.1.0 0.0.0.255 area 0
+area 0 authentication message-digest
+exit
+interface gig0/0
+ip ospf message-digest-key 1 md5 MD5pa55
+exit
+
+=========================Configure Local User & Global AAA==========================
+
+R1(config)
+username Admin1 secret admin1pa55
+aaa new-model
+
+===========================Configure AAA for the Console Line==============================
+
+R1(config)
+aaa authentication login default local
+line console 0
+login authentication default
+exit
+
+
+=================================Verify the Configurations===============================
+keep writing 'exit' until you reach R1> it will now ask password
+username: Admin1
+pswd: admin1pa55
+
+Verify PC0 & PC1 (Remote AAA):
+In PC0 and PC1:
+ssh -l Admin1 192.168.1.1 
+
+pswd: admin1pa55

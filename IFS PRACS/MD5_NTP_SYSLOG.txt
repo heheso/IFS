@@ -1,0 +1,187 @@
+Q.1 Create the following topology and
+ Configure OSPF MD5 authentication.
+ Configure NTP and configure routers to log messages to the
+Syslog Server.
+
+Topology and configuartiob will be given
+
+=================================== routers connections ====================================
+
+---R1
+Router>en
+Router#conf t
+Router(config)#router ospf 1
+Router(config-router)#network 192.168.1.0 0.0.0.255 area 0
+Router(config-router)#network 10.1.1.0 0.0.0.3 area 0
+Router(config-router)#
+00:17:29: %OSPF-5-ADJCHG: Process 1, Nbr 10.2.2.2 on Serial0/1/0 from LOADING to FULL, Loading Done
+
+
+---R2
+Router(config)#router ospf 2
+Router(config-router)#network 10.1.1.0 0.0.0.3 area 0
+Router(config-router)#network 10.2.2.0 0.0.0.3 area 0
+Router(config-router)#
+00:16:49: %OSPF-5-ADJCHG: Process 2, Nbr 192.168.1.1 on Serial0/1/0 from LOADING to FULL, Loading Done
+
+00:19:18: %OSPF-5-ADJCHG: Process 2, Nbr 192.168.3.1 on Serial0/1/1 from LOADING to FULL, Loading Done
+
+
+---R3
+Router(config)#router ospf 3
+Router(config-router)#network 10.2.2.0 0.0.0.3 area 0
+Router(config-router)#
+00:19:03: %OSPF-5-ADJCHG: Process 3, Nbr 10.2.2.2 on Serial0/1/0 from LOADING to FULL, Loading Done
+Router(config-router)#network 192.168.3.0 0.0.0.255 area 0
+
+
+Ping
+-- PCA
+Cisco Packet Tracer SERVER Command Line 1.0
+C:\>ping 192.168.3.5
+
+Pinging 192.168.3.5 with 32 bytes of data:
+
+Reply from 192.168.3.5: bytes=32 time=2ms TTL=125
+Reply from 192.168.3.5: bytes=32 time=2ms TTL=125
+Reply from 192.168.3.5: bytes=32 time=2ms TTL=125
+Reply from 192.168.3.5: bytes=32 time=2ms TTL=125
+
+Ping statistics for 192.168.3.5:
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 2ms, Maximum = 2ms, Average = 2ms
+
+
+-- PCC
+
+Cisco Packet Tracer PC Command Line 1.0
+C:\>ping 192.168.1.6
+
+Pinging 192.168.1.6 with 32 bytes of data:
+
+Reply from 192.168.1.6: bytes=32 time=2ms TTL=125
+Reply from 192.168.1.6: bytes=32 time=15ms TTL=125
+Reply from 192.168.1.6: bytes=32 time=10ms TTL=125
+Reply from 192.168.1.6: bytes=32 time=12ms TTL=125
+
+Ping statistics for 192.168.1.6:
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 2ms, Maximum = 15ms, Average = 9ms
+
+
+===============Configure OSPF MD5 authentication for all the routers in area 0.===========
+
+--R1
+Router(config)#router ospf 1
+Router(config-router)#area 0 authentication message-digest
+Router(config-router)#
+00:42:51: %OSPF-5-ADJCHG: Process 1, Nbr 10.2.2.2 on Serial0/1/0 from FULL to DOWN, Neighbor Down: Dead timer expired
+
+00:42:51: %OSPF-5-ADJCHG: Process 1, Nbr 10.2.2.2 on Serial0/1/0 from FULL to DOWN, Neighbor Down: Interface down or detached
+
+00:43:11: %OSPF-5-ADJCHG: Process 1, Nbr 10.2.2.2 on Serial0/1/0 from LOADING to FULL, Loading Done
+
+Router#
+%SYS-5-CONFIG_I: Configured from console by console
+
+--R2
+Router(config)#router ospf 2
+Router(config-router)#
+00:42:10: %OSPF-5-ADJCHG: Process 2, Nbr 192.168.1.1 on Serial0/1/0 from FULL to DOWN, Neighbor Down: Dead timer expired
+
+00:42:10: %OSPF-5-ADJCHG: Process 2, Nbr 192.168.1.1 on Serial0/1/0 from FULL to DOWN, Neighbor Down: Interface down or detached
+
+Router(config-router)#area 0 authentication message-digest
+Router(config-router)#
+00:42:31: %OSPF-5-ADJCHG: Process 2, Nbr 192.168.1.1 on Serial0/1/0 from LOADING to FULL, Loading Done
+
+--R3
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router(config)#router ospf 3
+Router(config-router)#area 0 authentication message-digest
+
+
+--R1
+R1(config)# interface s0/1/0
+R1(config-if)# ip ospf message-digest-key 1 md5 MD5pa55
+
+--R2
+R2(config)# interface s0/1/0
+R2(config-if)# ip ospf message-digest-key 1 md5 MD5pa55
+R2(config-if)# interface s0/1/1
+R2(config-if)# ip ospf message-digest-key 1 md5 MD5pa55
+
+-R3
+R3(config)# interface s0/1/0
+R3(config-if)# ip ospf message-digest-key 1 md5 MD5pa55
+
+
+--R1
+**DO THE SAME FOR R2 and R3***
+Router#show ip ospf interface
+
+op:
+GigabitEthernet0/0 is up, line protocol is up
+  Internet address is 192.168.1.1/24, Area 0
+  Process ID 1, Router ID 192.168.1.1, Network Type BROADCAST, Cost: 1
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 192.168.1.1, Interface address 192.168.1.1
+  No backup designated router on this network
+  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5
+    Hello due in 00:00:02
+  Index 1/1, flood queue length 0
+  Next 0x0(0)/0x0(0)
+  Last flood scan length is 1, maximum is 1
+  Last flood scan time is 0 msec, maximum is 0 msec
+  Neighbor Count is 0, Adjacent neighbor count is 0
+  Suppress hello for 0 neighbor(s)
+  Message digest authentication enabled
+      No key configured, using default key id 0
+Serial0/1/0 is up, line protocol is up
+  Internet address is 10.1.1.1/30, Area 0
+  Process ID 1, Router ID 192.168.1.1, Network Type POINT-TO-POINT, Cost: 64
+  Transmit Delay is 1 sec, State POINT-TO-POINT,
+  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5
+    Hello due in 00:00:05
+  Index 2/2, flood queue length 0
+  Next 0x0(0)/0x0(0)
+  Last flood scan length is 1, maximum is 1
+  Last flood scan time is 0 msec, maximum is 0 msec
+  Neighbor Count is 1 , Adjacent neighbor count is 1
+    Adjacent with neighbor 10.2.2.2
+  Suppress hello for 0 neighbor(s)
+  Message digest authentication enabled
+    Youngest key id is 1
+
+
+=================================Part 2: Configure NTP ==============================
+---------------Configure NTP authentication on the routers.---------
+pswd: NTPpa55
+
+ALL ROUTERS
+Router#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router(config)#ntp authenticate
+Router(config)#ntp trusted-key 1
+Router(config)#ntp authentication-key 1 md5 NTPpa55
+
+
+---------------------Configure routers to timestamp log messages.----------------------
+ALL ROUTERS
+Router(config)# service timestamps log datetime msec
+
+
+==========================Configure Routers to Log Messages to the Syslog Server=============
+
+ALL ROUTERS
+>logging host 192.168.1.6
+Router(config)#exi
+[YOU SHOULD GET THIS IN CLI]
+Router#
+*Mar 01, 01:00:22.000: SYS-5-CONFIG_I: Configured from console by console
+*Mar 01, 01:00:22.000:  %SYS-6-LOGGINGHOST_STARTSTOP: Logging to host 192.168.1.6 port 514 started - CLI initiated
+
+OP
+GO TO PCB -> Services -> SYSLOG -> The messages will appear sent from R1,2,3

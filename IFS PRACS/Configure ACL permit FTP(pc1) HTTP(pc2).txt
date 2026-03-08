@@ -1,0 +1,48 @@
+Topology will be given Configure it
+
+FOR ROUTING B/w DEVICES FROM ROUTER
+R1(config)#router ospf 1
+R1(config-router)#network 172.22.34.0 0.0.0.255 area 0
+
+=============== Part 1: Configure PC1 for FTP Access (Numbered ACL) ======================
+
+access-list 100 permit tcp 172.22.34.64 0.0.0.31 host 172.22.34.62 eq ftp
+access-list 100 permit icmp 172.22.34.64 0.0.0.31 host 172.22.34.62
+interface gigabitEthernet 0/0
+ip access-group 100 in
+
+
+=========================Part 2: Configure PC2 for HTTP Access (Named ACL)=================
+
+ip access-list extended HTTP_ONLY
+permit tcp 172.22.34.96 0.0.0.15 host 172.22.34.62 eq www
+permit icmp 172.22.34.96 0.0.0.15 host 172.22.34.62
+exit
+interface gigabitEthernet 0/1
+ip access-group HTTP_ONLY in
+
+ 
+==========================Part 3: Verification (Testing the Setup)========================
+
+---- PC1
+C:\>ping 172.22.34.62   [Should be successful]
+
+
+C:\>ftp 172.22.34.62  [Should connect]
+username: cisco
+pswd: cisco
+
+>quit [to quit ftp]
+
+web browser: http://172.22.34.62   [should give server timeout]
+
+
+
+----PC2
+Cisco Packet Tracer PC Command Line 1.0
+C:\>ping 172.22.34.62    [successful]
+
+C:\>ftp 172.22.34.62   [Should fail!]
+
+web browser : http://172.22.34.62   [should be successful]
+
