@@ -1,0 +1,111 @@
+---------------------------------------------------------
+QUESTION 9 IPv6 ACLs — Block HTTP and HTTPS on R1
+---------------------------------------------------------
+
+■ ADDRESSING TABLE
+
+Device      Interface     IPv6 Address/Prefix        Default GW
+PC1         NIC           2001:DB8:1:10::10/64       FE80::1
+PC2         NIC           2001:DB8:1:11::11/64       FE80::1
+R1          gig0/0        2001:DB8:1:10::1/64        —
+R1          gig0/1        2001:DB8:1:11::1/64        —
+R1          se0/1/0       2001:DB8:1:1::1/64         —
+R2          se0/1/0       2001:DB8:1:1::2/64         —
+R2          se0/1/1       2001:DB8:1:2::2/64         —
+R3          gig0/0        2001:DB8:1:30::1/64        —
+R3          se0/1/0       2001:DB8:1:2::1/64         —
+Server      NIC           2001:DB8:1:30::30/64       FE80::3
+
+
+■ TOPOLOGY SETUP
+
+Place: 3 routers (1941), Switch1 (PC1, PC2 side on R1), Switch2 (Server side on R3). Use serial cables for R1-R2 and R2-R3.
+
+
+■ STEPS
+
+Step 1 — Enable IPv6 routing and configure all interfaces
+--R1(config)#
+ipv6 unicast-routing
+interface gig0/0
+ipv6 address 2001:DB8:1:10::1/64
+ipv6 address FE80::1 link-local
+no shutdown
+exit
+interface gig0/1
+ipv6 address 2001:DB8:1:11::1/64
+ipv6 address FE80::1 link-local
+no shutdown
+exit
+interface se0/1/0
+ipv6 address 2001:DB8:1:1::1/64
+clock rate 128000
+no shutdown
+exit
+--R2(config)#
+ipv6 unicast-routing
+interface se0/1/0
+ipv6 address 2001:DB8:1:1::2/64
+no shutdown
+exit
+interface se0/1/1
+ipv6 address 2001:DB8:1:2::2/64
+clock rate 128000
+no shutdown
+exit
+--R3(config)#
+ipv6 unicast-routing
+interface gig0/0
+ipv6 address 2001:DB8:1:30::1/64
+ipv6 address FE80::3 link-local
+no shutdown
+exit
+interface se0/1/0
+ipv6 address 2001:DB8:1:2::1/64
+no shutdown
+exit
+
+Step 2 — Configure IPv6 static routes on all routers
+--R1(config)#
+ipv6 route 2001:DB8:1:30::/64 2001:DB8:1:1::2
+ipv6 route 2001:DB8:1:2::/64 2001:DB8:1:1::2
+--R2(config)#
+ipv6 route 2001:DB8:1:10::/64 2001:DB8:1:1::1
+ipv6 route 2001:DB8:1:11::/64 2001:DB8:1:1::1
+ipv6 route 2001:DB8:1:30::/64 2001:DB8:1:2::1
+--R3(config)#
+ipv6 route 2001:DB8:1:10::/64 2001:DB8:1:2::2
+ipv6 route 2001:DB8:1:11::/64 2001:DB8:1:2::2
+
+Step 3 — Block HTTP (port 80) from PC1 subnet — applied on Gig0/0 inbound
+--R1(config)#
+ipv6 access-list BLOCK_HTTP
+deny tcp any host 2001:DB8:1:30::30 eq www
+permit ipv6 any any
+exit
+interface gig0/0
+ipv6 traffic-filter BLOCK_HTTP in
+exit
+
+Step 4 — Block HTTPS (port 443) from PC2 subnet — applied on Gig0/1 inbound
+--R1(config)#
+ipv6 access-list BLOCK_HTTPS
+deny tcp any host 2001:DB8:1:30::30 eq 443
+permit ipv6 any any
+exit
+interface gig0/1
+ipv6 traffic-filter BLOCK_HTTPS in
+exit
+
+■ VERIFICATION
+
+PC1 browser http://[2001:DB8:1:30::30] → Timeout (HTTP blocked)
+PC1 ping Server → Success (ICMP not blocked)
+PC2 browser https://[2001:DB8:1:30::30] → Timeout (HTTPS blocked)
+--R1#
+show ipv6 access-list → deny lines show match counts > 0
+
+■ KEY POINTS
+
+IPv6 ACLs: always named, always 'ipv6 traffic-filter', always 'ipv6 access-list'.
+eq www = 80. eq 443 = HTTPS. Both are TCP.

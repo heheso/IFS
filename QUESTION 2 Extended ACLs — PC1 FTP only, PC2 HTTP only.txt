@@ -1,0 +1,62 @@
+---------------------------------------------------------
+QUESTION 2: Extended ACLs — PC1 FTP only, PC2 HTTP only
+QUESTION
+---------------------------------------------------------
+
+■ ADDRESSING TABLE
+
+Device          Interface    IP Address       Subnet Mask      Default GW
+R1              gig0/0       172.22.34.65     255.255.255.224  N/A
+R1              gig0/1       172.22.34.97     255.255.255.240  N/A
+R1              gig0/2       172.22.34.1      255.255.255.192  N/A
+Server          NIC          172.22.34.62     255.255.255.192  172.22.34.1
+PC1             NIC          172.22.34.66     255.255.255.224  172.22.34.65
+PC2             NIC          172.22.34.98     255.255.255.240  172.22.34.97
+
+
+■ STEPS
+
+Step 1 — Configure IPs on Router
+--R1(config)#
+interface gig0/0
+ip address 172.22.34.65 255.255.255.224
+no shutdown
+exit
+interface gig0/1
+ip address 172.22.34.97 255.255.255.240
+no shutdown
+exit
+interface gig0/2
+ip address 172.22.34.1 255.255.255.192
+no shutdown
+exit
+
+Step 2 — Configure ACL for PC1 (FTP + ICMP only)
+--R1(config)#
+access-list 100 permit tcp 172.22.34.64 0.0.0.31 host 172.22.34.62 eq ftp
+access-list 100 permit icmp 172.22.34.64 0.0.0.31 host 172.22.34.62
+interface gig0/0
+ip access-group 100 in
+exit
+
+Step 3 — Configure Named ACL for PC2 (HTTP + ICMP only)
+--R1(config)#
+ip access-list extended HTTP_ONLY
+permit tcp 172.22.34.96 0.0.0.15 host 172.22.34.62 eq www
+permit icmp 172.22.34.96 0.0.0.15 host 172.22.34.62
+exit
+interface gig0/1
+ip access-group HTTP_ONLY in
+exit
+
+
+Step 4 — VERIFY
+---PC1 command prompt
+ftp 172.22.34.62   //it will work
+ping 172.22.34.97   // it will give host unreachable
+http://172.22.34.62   //it will be request timeout
+---PC2 command prompt
+ftp 172.22.34.62   //it will not work
+ping 172.22.34.97   // it will give host unreachable
+http://172.22.34.62   //it will work
+

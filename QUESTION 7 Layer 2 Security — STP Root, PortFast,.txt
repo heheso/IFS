@@ -1,0 +1,98 @@
+---------------------------------------------------------
+QUESTION 7
+Layer 2 Security — STP Root, PortFast, BPDU Guard, Port Security
+---------------------------------------------------------
+
+■ ADDRESSING TABLE
+
+Device        Interface        IP / Notes                         Subnet Mask     Default GW
+Central       Gig0/1 uplink    Root bridge — priority 24576       —               —
+SW-1          Fa0/23-24        Root Guard applied here            —               —
+SW-2          Fa0/23-24        Root Guard applied here            —               —
+SW-A          Fa0/1-4          PortFast + BPDU Guard + Port Security —            —
+SW-B          Fa0/1-4          PortFast + BPDU Guard + Port Security —            —
+
+■ STEPS
+
+Step 1 — Assign root and secondary bridge
+--Central(config)#
+spanning-tree vlan 1 root primary
+--SW-1(config)#
+spanning-tree vlan 1 root secondary
+
+Step 2 — PortFast and BPDU Guard on SW-A access ports
+--SW-A(config)#
+interface range fa0/1 - 4
+spanning-tree portfast
+spanning-tree bpduguard enable
+exit
+
+Step 2b — PortFast and BPDU Guard on SW-B access ports
+--SW-B(config)#
+interface range fa0/1 - 4
+spanning-tree portfast
+spanning-tree bpduguard enable
+exit
+
+Step 3 — Root Guard on SW-1 uplinks
+--SW-1(config)#
+interface range fa0/23 - 24
+spanning-tree guard root
+exit
+
+Step 3b — Root Guard on SW-2 uplinks
+--SW-2(config)#
+interface range fa0/23 - 24
+spanning-tree guard root
+exit
+
+Step 4 — Port Security on SW-A (host ports + shut unused)
+--SW-A(config)#
+interface range fa0/1 - 22
+switchport mode access
+switchport port-security
+switchport port-security maximum 2
+switchport port-security violation shutdown
+switchport port-security mac-address sticky
+exit
+
+interface range fa0/5 - 22
+shutdown
+exit
+
+Step 4b — Port Security on SW-B (host ports + shut unused)
+--SW-B(config)#
+interface range fa0/1 - 22
+switchport mode access
+switchport port-security
+switchport port-security maximum 2
+switchport port-security violation shutdown
+switchport port-security mac-address sticky
+exit
+
+interface range fa0/5 - 22
+shutdown
+exit
+
+■ VERIFICATION
+--Central#
+show spanning-tree
+(This bridge is the root) Priority 24577
+
+--SW-A#
+show port-security interface fa0/1
+Enabled
+Max MAC: 2
+Mode: Shutdown
+
+Ping C1 → C2
+
+--SW-A#
+show port-security interface fa0/1
+Sticky MAC count = 1
+
+
+■ KEY POINTS
+'root primary' sets priority 24576. 'secondary' = 28672. Lowest wins.
+PortFast on ACCESS ports only — never trunk or uplink ports.
+'switchport mode access' must come before 'switchport port-security'.

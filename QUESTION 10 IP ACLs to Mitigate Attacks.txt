@@ -1,0 +1,129 @@
+---------------------------------------------------------
+QUESTION 10 IP ACLs to Mitigate Attacks
+---------------------------------------------------------
+
+■ ADDRESSING TABLE
+
+Device        Interface      IP Address        Subnet Mask        Default GW
+R1            gig0/0         192.168.1.1       255.255.255.0      N/A
+R1            se0/1/0        10.1.1.1          255.255.255.252    N/A
+R2            se0/1/0        10.1.1.2          255.255.255.252    N/A
+R2            se0/1/1        10.2.2.2          255.255.255.252    N/A
+R2            Lo0            192.168.2.1       255.255.255.0      N/A
+R3            gig0/0         192.168.3.1       255.255.255.0      N/A
+R3            se0/1/0        10.2.2.1          255.255.255.252    N/A
+PC-A (Server) NIC            192.168.1.3       255.255.255.0      192.168.1.1
+PC-C (Mgmt)   NIC            192.168.3.3       255.255.255.0      192.168.3.1
+
+■ STEPS
+
+Step 1 — Configure IPs and OSPF routing on all routers
+--R1(config)#
+interface gig0/0
+ip address 192.168.1.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.1.1.1 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+router ospf 1
+network 192.168.1.0 0.0.0.255 area 0
+network 10.1.1.0 0.0.0.3 area 0
+exit
+--R2(config)#
+interface se0/1/0
+ip address 10.1.1.2 255.255.255.252
+no shutdown
+exit
+interface se0/1/1
+ip address 10.2.2.2 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+interface loopback 0
+ip address 192.168.2.1 255.255.255.0
+exit
+router ospf 1
+network 10.1.1.0 0.0.0.3 area 0
+network 10.2.2.0 0.0.0.3 area 0
+network 192.168.2.0 0.0.0.255 area 0
+exit
+--R3(config)#
+interface gig0/0
+ip address 192.168.3.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.2.2.1 255.255.255.252
+no shutdown
+exit
+router ospf 1
+network 192.168.3.0 0.0.0.255 area 0
+network 10.2.2.0 0.0.0.3 area 0
+exit
+
+Step 2 — ACL 10 — Restrict VTY access to PC-C only (apply on all routers)
+--R1(config)#
+access-list 10 permit host 192.168.3.3
+line vty 0 4
+access-class 10 in
+exit
+--R2(config)#
+access-list 10 permit host 192.168.3.3
+line vty 0 4
+access-class 10 in
+exit
+--R3(config)#
+access-list 10 permit host 192.168.3.3
+line vty 0 4
+access-class 10 in
+exit
+
+Step 3 — ACL 120 on R1 Se0/1/0 inbound — control external traffic to PC-A
+--R1(config)#
+access-list 120 permit udp any host 192.168.1.3 eq domain
+access-list 120 permit tcp any host 192.168.1.3 eq smtp
+access-list 120 permit tcp any host 192.168.1.3 eq ftp
+access-list 120 deny tcp any host 192.168.1.3 eq 443
+access-list 120 permit tcp host 192.168.3.3 host 10.1.1.1 eq 22
+access-list 120 permit icmp any any echo-reply
+access-list 120 permit icmp any any unreachable
+access-list 120 deny icmp any any
+access-list 120 permit ip any any
+interface se0/1/0
+ip access-group 120 in
+exit
+
+Step 4 — R3 anti-spoofing ACL 110 on Gig0/0 inbound
+--R3(config)#
+access-list 110 permit ip 192.168.3.0 0.0.0.255 any
+interface gig0/0
+ip access-group 110 in
+exit
+
+Step 5 — R3 RFC 1918 blocking ACL 100 on Se0/1/0 inbound
+--R3(config)#
+access-list 100 permit tcp 10.0.0.0 0.255.255.255 eq 22 host 192.168.3.3
+access-list 100 deny ip 10.0.0.0 0.255.255.255 any
+access-list 100 deny ip 172.16.0.0 0.15.255.255 any
+access-list 100 deny ip 192.168.0.0 0.0.255.255 any
+access-list 100 deny ip 127.0.0.0 0.255.255.255 any
+access-list 100 deny ip 224.0.0.0 15.255.255.255 any
+access-list 100 permit ip any any
+interface se0/1/0
+ip access-group 100 in
+exit
+
+■ VERIFICATION
+PC-C telnet any router → Login prompt (permitted)
+PC-A telnet any router → Connection refused (blocked by ACL 10)
+PC-C ping PC-A → Success (echo-reply permitted by ACL 120)
+PC-C HTTPS to PC-A → Fail (port 443 denied)
+PC-C FTP/DNS/SMTP to PC-A → Success
+
+■ KEY POINTS
+'access-class' on VTY. 'ip access-group' on interfaces. Never swap these.
+SSH permit MUST appear before deny 10.0.0.0/8 in ACL 100 — order matters.
+RFC 1918: 10/8, 172.16/12, 192.168/16 — memorise these.

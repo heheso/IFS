@@ -1,0 +1,92 @@
+---------------------------------------------------------
+QUESTION 3: IPv6 Static Routing + Block ICMP on R3
+QUESTION
+---------------------------------------------------------
+
+■ ADDRESSING TABLE
+
+Device          Interface    IPv6 Address/Prefix        Default GW
+PC1             NIC          2001:DB8:1:10::10/64       FE80::1
+PC2             NIC          2001:DB8:1:11::11/64       FE80::1
+R1              gig0/0       2001:DB8:1:10::1/64        —
+R1              gig0/1       2001:DB8:1:11::1/64        —
+R1              se0/1/0      2001:DB8:1:1::1/64         —
+R2              se0/1/0      2001:DB8:1:1::2/64         —
+R2              se0/1/1      2001:DB8:1:2::2/64         —
+R3              gig0/0       2001:DB8:1:30::1/64        —
+R3              se0/1/0      2001:DB8:1:2::1/64         —
+Server          NIC          2001:DB8:1:30::30/64       FE80::3
+
+
+■ STEPS
+
+Step 1 — Enable IPv6 routing and configure interfaces
+--R1(config)#
+ipv6 unicast-routing
+interface gig0/0
+ipv6 address 2001:DB8:1:10::1/64
+ipv6 address FE80::1 link-local
+no shutdown
+exit
+interface gig0/1
+ipv6 address 2001:DB8:1:11::1/64
+ipv6 address FE80::1 link-local
+no shutdown
+exit
+interface se0/1/0
+ipv6 address 2001:DB8:1:1::1/64
+clock rate 128000
+no shutdown
+exit
+--R2(config)#
+ipv6 unicast-routing
+interface se0/1/0
+ipv6 address 2001:DB8:1:1::2/64
+no shutdown
+exit
+interface se0/1/1
+ipv6 address 2001:DB8:1:2::2/64
+clock rate 128000
+no shutdown
+exit
+--R3(config)#
+ipv6 unicast-routing
+interface gig0/0
+ipv6 address 2001:DB8:1:30::1/64
+ipv6 address FE80::3 link-local
+no shutdown
+exit
+interface se0/1/0
+ipv6 address 2001:DB8:1:2::1/64
+no shutdown
+exit
+
+
+Step 2 — Configure IPv6 Static Routes
+--R1(config)#
+ipv6 route 2001:DB8:1:30::/64 2001:DB8:1:1::2
+ipv6 route 2001:DB8:1:2::/64 2001:DB8:1:1::2
+--R2(config)#
+ipv6 route 2001:DB8:1:10::/64 2001:DB8:1:1::1
+ipv6 route 2001:DB8:1:11::/64 2001:DB8:1:1::1
+ipv6 route 2001:DB8:1:30::/64 2001:DB8:1:2::1
+--R3(config)#
+ipv6 route 2001:DB8:1:10::/64 2001:DB8:1:2::2
+ipv6 route 2001:DB8:1:11::/64 2001:DB8:1:2::2
+
+Step 3 — Configure IPv6 ACL to Block ICMP
+--R3(config)#
+ipv6 access-list BLOCK_ICMP
+deny icmp any any
+permit ipv6 any any
+exit
+interface gig0/0
+ipv6 traffic-filter BLOCK_ICMP out
+exit
+
+Step 4 — VERIFY
+--PC1
+ping 2001:DB8:1:30::30
+browser http://[2001:DB8:1:30::30]
+--R3#
+show ipv6 interface gig0/0

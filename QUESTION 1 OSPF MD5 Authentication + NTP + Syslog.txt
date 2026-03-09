@@ -1,0 +1,147 @@
+---------------------------------------------------------
+QUESTION 1: OSPF MD5 Authentication + NTP + Syslog
+QUESTION
+---------------------------------------------------------
+
+■ ADDRESSING TABLE
+
+Device          Interface    IP Address       Subnet Mask      Default GW
+R1              gig0/0       192.168.1.1      255.255.255.0    N/A 
+R1              se0/1/0      10.1.1.1         255.255.255.252  N/A 
+R2              se0/1/0      10.1.1.2         255.255.255.252  N/A 
+R2              se0/1/1      10.2.2.2         255.255.255.252  N/A 
+R3              gig0/0       192.168.3.1      255.255.255.0    N/A 
+R3              se0/1/0      10.2.2.1         255.255.255.252  N/A 
+PC-A (NTP)      NIC          192.168.1.5      255.255.255.0    192.168.1.1 
+PC-B (Syslog)   NIC          192.168.1.6      255.255.255.0    192.168.1.1 
+PC-C            NIC          192.168.3.5      255.255.255.0    192.168.3.1 
+
+■ STEPS
+
+Step 1 — Configure IPs on all devices
+--R1(config)#
+interface gig0/0
+ip address 192.168.1.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.1.1.1 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+--R2(config)#
+interface se0/1/0
+ip address 10.1.1.2 255.255.255.252
+no shutdown
+exit
+interface se0/1/1
+ip address 10.2.2.2 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+--R3(config)#
+interface gig0/0
+ip address 192.168.3.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.2.2.1 255.255.255.252
+no shutdown
+exit
+
+Step 2 — Configure OSPF on all routers
+--R1(config)#
+router ospf 1
+network 192.168.1.0 0.0.0.255 area 0
+network 10.1.1.0 0.0.0.3 area 0
+exit
+--R2(config)#
+router ospf 1
+network 10.1.1.0 0.0.0.3 area 0
+network 10.2.2.0 0.0.0.3 area 0
+exit
+--R3(config)#
+router ospf 1
+network 192.168.3.0 0.0.0.255 area 0
+network 10.2.2.0 0.0.0.3 area 0
+exit
+
+Step 3 — OSPF MD5 AUTHENTICATION
+--R1(config)#
+router ospf 1
+area 0 authentication message-digest
+exit
+interface se0/1/0
+ip ospf message-digest-key 1 md5 MD5pa55
+exit
+--R2(config)#
+router ospf 1
+area 0 authentication message-digest
+exit
+interface se0/1/0
+ip ospf message-digest-key 1 md5 MD5pa55
+exit
+interface se0/1/1
+ip ospf message-digest-key 1 md5 MD5pa55
+exit
+--R3(config)#
+router ospf 1
+area 0 authentication message-digest
+exit
+interface se0/1/0
+ip ospf message-digest-key 1 md5 MD5pa55
+exit
+
+Step 4 — VERIFY
+---R1#
+show ip ospf interface
+---R2#
+show ip ospf interface
+---R3#
+show ip ospf interface
+
+Step 5 — NTP CONFIGURATION 
+(Server: PC-A)
+Click PC-A → Services → NTP → On. Under Authentication click Enable, Key=1, Password=NTPpa55
+(on all routers)
+---R2(config)#
+ntp server 192.168.1.5
+ntp update-calendar
+ntp authenticate
+ntp trusted-key 1
+ntp authentication-key 1 md5 NTPpa55
+service timestamps log datetime msec
+---R2(config)#
+ntp server 192.168.1.5
+ntp update-calendar
+ntp authenticate
+ntp trusted-key 1
+ntp authentication-key 1 md5 NTPpa55
+service timestamps log datetime msec
+---R2(config)#
+ntp server 192.168.1.5
+ntp update-calendar
+ntp authenticate
+ntp trusted-key 1
+ntp authentication-key 1 md5 NTPpa55
+service timestamps log datetime msec
+
+Step 6 — VERIFY
+---R1#
+show clock
+---R2#
+show clock
+---R3#
+show clock
+
+Step 7 — SYSLOG CONFIGURATION
+Click PC-B → Services → SYSLOG → On, then configure each router:
+---R1(config)#
+logging host 192.168.1.6
+---R2(config)#
+logging host 192.168.1.6
+---R3(config)#
+logging host 192.168.1.6
+
+OP
+GO TO PCB -> Services -> SYSLOG -> The messages will appear sent from R1,2,3

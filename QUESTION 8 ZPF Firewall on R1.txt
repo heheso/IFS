@@ -1,0 +1,120 @@
+---------------------------------------------------------
+QUESTION 8 ZPF Firewall on R1
+---------------------------------------------------------
+
+■ ADDRESSING TABLE
+
+Device        Interface      IP Address        Subnet Mask        Default GW
+R1            gig0/0         192.168.1.1       255.255.255.0      N/A
+R1            se0/1/0        10.1.1.1          255.255.255.252    N/A
+R2            se0/1/0        10.1.1.2          255.255.255.252    N/A
+R2            se0/1/1        10.2.2.2          255.255.255.252    N/A
+R3            gig0/0         192.168.3.1       255.255.255.0      N/A
+R3            se0/1/0        10.2.2.1          255.255.255.252    N/A
+PC-A (inside) NIC            192.168.1.3       255.255.255.0      192.168.1.1
+PC-C (outside) NIC           192.168.3.3       255.255.255.0      192.168.3.1
+
+■ STEPS
+
+Step 1 — Configure IPs and static routes on all routers
+--R1(config)#
+interface gig0/0
+ip address 192.168.1.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.1.1.1 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+ip route 10.2.2.0 255.255.255.252 10.1.1.2
+ip route 192.168.3.0 255.255.255.0 10.1.1.2
+--R2(config)#
+interface se0/1/0
+ip address 10.1.1.2 255.255.255.252
+no shutdown
+exit
+interface se0/1/1
+ip address 10.2.2.2 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+ip route 192.168.1.0 255.255.255.0 10.1.1.1
+ip route 192.168.3.0 255.255.255.0 10.2.2.1
+--R3(config)#
+interface gig0/0
+ip address 192.168.3.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.2.2.1 255.255.255.252
+no shutdown
+exit
+ip route 192.168.1.0 255.255.255.0 10.2.2.2
+ip route 10.1.1.0 255.255.255.252 10.2.2.2
+
+
+Step 2 — Enable security package on R1 and reload
+--R1(config)#
+license boot module c1900 technology-package securityk9
+! Type yes when prompted
+--R1#
+copy running-config startup-config
+reload
+! After reload, log back in and enter configure terminal
+
+
+Step 3 — Create security zones, ACL, and class-map
+--R1(config)#
+zone security IN-ZONE
+exit
+zone security OUT-ZONE
+exit
+access-list 101 permit ip 192.168.1.0 0.0.0.255 any
+class-map type inspect match-all IN-NET-CLASS-MAP
+match access-group 101
+exit
+
+
+Step 4 — Policy-map and zone-pair
+--R1(config)#
+policy-map type inspect IN-2-OUT-PMAP
+class type inspect IN-NET-CLASS-MAP
+inspect
+exit
+exit
+zone-pair security IN-2-OUT-ZPAIR source IN-ZONE destination OUT-ZONE
+service-policy type inspect IN-2-OUT-PMAP
+exit
+
+
+Step 5 — Assign interfaces to zones
+--R1(config)#
+interface gig0/0
+zone-member security IN-ZONE
+exit
+interface se0/1/0
+zone-member security OUT-ZONE
+exit
+
+
+■ VERIFICATION
+
+--R1#
+show zone security
+IN-ZONE has Gig0/0  
+OUT-ZONE has Se0/1/0
+
+PC-A ping PC-C → Success (inside→outside, inspect allows return traffic)
+PC-C ping PC-A → Timeout (outside→inside blocked — no reverse policy)
+
+--R1#
+show policy-map type inspect zone-pair sessions
+Session entries visible
+
+
+■ KEY POINTS
+
+ZPF order: Zones → ACL → ClassMap → PolicyMap → ZonePair → Assign interfaces.
+'inspect' = stateful. 'pass' = one-way stateless. 'drop' = block.
+Security package must be installed before zone security commands exist.
