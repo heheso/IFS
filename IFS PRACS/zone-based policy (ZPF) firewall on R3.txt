@@ -1,0 +1,83 @@
+Q.12 Create the following topology using static routing and configure  A
+zone-based policy (ZPF) firewall on R3  Verify ZPF firewall functionality using
+ping, SSH and a web browser.
+
+
+				  [ Router R2 ]
+                                 /             \
+               (10.1.1.2) Se0/1/0               Se0/1/1 (10.2.2.2)
+                               /                 \
+                              /                   \
+                             /                     \
+           (10.1.1.1) Se0/1/0                       Se0/1/0 (10.2.2.1)
+                 [ Router R1 ]                     [ Router R3 ]
+            (192.168.1.1) Gig0/0                     Gig0/0 (192.168.3.1)
+                             |                       |
+                         Fa0/1                       Fa0/1
+                   [ Switch S1 ]                   [ Switch S3 ]
+                         Fa0/2                       Fa0/2
+                             |                       |
+                           Fa0                       Fa0
+           (192.168.1.3) [ PCA ]                   [ PCC ] (192.168.3.3)
+                    (Server-PT)                     (PC-PT)
+
+
+===============Configure R2 (SHH)================================
+ip domain-name cisco.com
+crypto key generate rsa
+	How many bits in the modulus [512]: 1024
+
+username Admin secret Adminpa55
+line vty 0 4
+login local
+transport input ssh
+exit
+
+
+============================Configure R3=======================================
+license boot module c1900 technology-package securityk9
+exit
+show version
+write memory
+reload [y]
+
+R3(config)
+zone security IN-ZONE
+exit
+zone security OUT-ZONE
+exit
+
+access-list 101 permit ip 192.168.3.0 0.0.0.255 any
+
+class-map type inspect match-all IN-NET-CLASS-MAP
+match access-group 101
+exit
+
+policy-map type inspect IN-2-OUT-PMAP
+class type inspect IN-NET-CLASS-MAP
+inspect
+exit
+exit
+
+zone-pair security IN-2-OUT-ZPAIR source IN-ZONE destination OUT-ZONE
+service-policy type inspect IN-2-OUT-PMAP
+exit
+
+interface gig0/0
+zone-member security IN-ZONE
+exit
+interface se0/1/0
+zone-member security OUT-ZONE
+exit
+
+
+===================================Verification=====================================
+PCC
+ping 192.168.1.3
+
+webbrowser: http://192.168.1.3
+
+ssh -l Admin 10.2.2.2  [pswd: Adminpa55]
+
+--PCA
+ping 192.168.3.3   [should fail]

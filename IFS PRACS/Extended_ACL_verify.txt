@@ -1,0 +1,93 @@
+Q.19 Create the following topology using static routing
+1. Configure the extended ACL
+2. Verify the extended ACL implementation
+
+Q.6 Create the following topology and  Configure an ACL that will permit
+one LAN to remotely access device in another LAN using SSH Protocol 
+Besides ICMP all traffic from other network is denied.  Verify the ACL
+implementation.
+
+=============================Configure Router RTA====================================
+
+RTA(config):
+interface g0/0
+ip address 10.101.117.49 255.255.255.248
+no shutdown
+interface g0/1
+ip address 10.101.117.33 255.255.255.240
+no shutdown
+interface g0/2
+ip address 10.101.117.1 255.255.255.224
+no shutdown
+exit
+
+access-list 199 permit tcp 10.101.117.32 0.0.0.15 10.101.117.0 0.0.0.31 eq 22
+access-list 199 permit icmp any any
+
+interface g0/2
+ip access-group 199 out
+exit
+
+===================================Configure the Switches================================
+--SWA(config):
+interface vlan 1
+ip address 10.101.117.50 255.255.255.248
+no shutdown
+exit
+ip default-gateway 10.101.117.49
+ip domain-name cisco.com
+crypto key generate rsa
+How many bits in the modulus [512]: 1024
+username Admin secret Adminpa55
+line vty 0 4
+login local
+transport input ssh
+exit
+
+--SWB(config):
+interface vlan 1
+ip address 10.101.117.34 255.255.255.240
+no shutdown
+exit
+ip default-gateway 10.101.117.33
+ip domain-name cisco.com
+crypto key generate rsa
+How many bits in the modulus [512]: 1024
+username Admin secret Adminpa55
+line vty 0 4
+login local
+transport input ssh
+exit
+
+--SWC(config):
+interface vlan 1
+ip address 10.101.117.2 255.255.255.224
+no shutdown
+exit
+ip default-gateway 10.101.117.1
+ip domain-name cisco.com
+crypto key generate rsa
+How many bits in the modulus [512]: 1024
+username Admin secret Adminpa55
+line vty 0 4
+login local
+transport input ssh
+exit
+
+=============================Verification=========================================
+Test Ping from PCB [pass]
+ping 10.101.117.2 	[SWC]
+ping 10.101.117.34 	[SWB]
+
+--Test SSH from PCB to SWC
+ssh -l Admin 10.101.117.2   [pass]
+
+----Test Ping from PCA [pass]
+ping 10.101.117.2 	[SWC]
+ping 10.101.117.34 	[SWB]
+
+----Test SSH from PCA to SWC
+ssh -l Admin 10.101.117.2    [fail]
+
+----Test SSH from PCA to SWB [pass]
+ssh -l Admin 10.101.117.34

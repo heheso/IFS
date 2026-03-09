@@ -1,0 +1,76 @@
+====================Configure Server and 2 PCs with the given IPs========================
+
+
+==============================Configure Router R1==================================
+R1(config):
+
+ipv6 unicast-routing
+interface gig0/0
+ipv6 address 2001:DB8:1:10::1/64
+ipv6 address fe80::1 link-local
+no shutdown
+interface se0/1/0
+ipv6 address 2001:DB8:1:1::1/64
+no shutdown
+exit
+ipv6 route 2001:DB8:1:30::/64 2001:DB8:1:1::2
+ipv6 route 2001:DB8:1:31::/64 2001:DB8:1:1::2
+
+
+================================Configure Router R2================================
+R2(config):
+
+ipv6 unicast-routing
+interface se0/1/0
+ipv6 address 2001:DB8:1:1::2/64
+no shutdown
+interface se0/1/1
+ipv6 address 2001:DB8:1:2::2/64
+no shutdown
+exit
+ipv6 route 2001:DB8:1:10::/64 2001:DB8:1:1::1
+ipv6 route 2001:DB8:1:30::/64 2001:DB8:1:2::1
+ipv6 route 2001:DB8:1:31::/64 2001:DB8:1:2::1
+
+==============================Configure Router R3====================================
+R3(config):
+
+ipv6 unicast-routing
+interface gig0/0
+ipv6 address 2001:DB8:1:30::1/64
+ipv6 address fe80::3 link-local
+no shutdown
+interface gig0/1
+ipv6 address 2001:DB8:1:31::1/64
+ipv6 address fe80::3 link-local
+no shutdown
+interface se0/1/0
+ipv6 address 2001:DB8:1:2::1/64
+no shutdown
+exit
+
+ipv6 route 2001:DB8:1:10::/64 2001:DB8:1:2::2
+
+ipv6 access-list BLOCK_WEB
+deny tcp any any eq www
+deny tcp any any eq 443
+permit ipv6 any any
+exit
+
+interface se0/1/0
+ipv6 traffic-filter BLOCK_WEB out
+exit
+
+===============================Verification==========================================
+----Verify the HTTP Block
+
+PCC -> browser -> http://[2001:DB8:1:10::30]     [fail]
+
+---Verify the HTTPS Block
+
+PCC -> browser -> https://[2001:DB8:1:10::30]     [fail]
+
+PCC -> ping 2001:DB8:1:10::30  [pass]
+
+
+

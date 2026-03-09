@@ -1,0 +1,73 @@
+Q.8 Create the following topology using static routing and configure  A
+zone-based policy (ZPF) firewall on R1  Verify ZPF firewall functionality using
+ping, SSH and a web browser.
+
+
+===============================Configure R1 (The Firewall)==================================
+R1(config):
+license boot module c1900 technology-package securityk9
+exit
+
+R1#
+show version
+write memory
+reload
+show version
+
+R1(config)
+zone security IN-ZONE
+exit
+zone security OUT-ZONE
+exit
+
+access-list 101 permit ip 192.168.1.0 0.0.0.255 any
+
+class-map type inspect match-all IN-NET-CLASS-MAP
+match access-group 101
+exit
+
+policy-map type inspect IN-2-OUT-PMAP
+class type inspect IN-NET-CLASS-MAP
+inspect
+exit
+exit
+
+zone-pair security IN-2-OUT-ZPAIR source IN-ZONE destination OUT-ZONE
+service-policy type inspect IN-2-OUT-PMAP
+exit
+
+interface gig0/0
+zone-member security IN-ZONE
+exit
+interface se0/1/0
+zone-member security OUT-ZONE
+exit
+
+=================================Verification======================================
+
+PCA
+ping 192.168.3.3  [should pass]
+
+PCC
+ping 192.168.1.3   [should fail]
+
+
+--The Web Browser Test
+PCA -> web browser
+http://192.168.3.3     [pass]
+
+
+--The SSH Test
+R2:
+R2(config)# 
+ip domain-name cisco.com
+crypto key generate rsa
+	How many bits in the modulus [512]: 1024
+username Admin secret Adminpa55
+line vty 0 4
+login local
+transport input ssh
+exit
+
+PCA/PCC
+ssh -l Admin 10.1.1.2    [pswd: Adminpa55]

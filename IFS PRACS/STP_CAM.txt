@@ -1,0 +1,88 @@
+Q.7 Create the following topology and  Assign the Central switch as the root
+bridge.  Secure spanning-tree parameters to prevent STP manipulation
+attacks.  Enable port security to prevent CAM table overflow attacks.
+
+
+				[ Cloud0 ]
+                                     | (Se0/0/0)
+                                  [ R1 ]
+                                     | (Gig0/1 to Fa0/1)
+                               [ Central ]
+               (Gig0/1 to Gig0/1) /     \ (Gig0/2 to Gig0/1)
+                                 /       \
+                            [ SW1 ]     [ SW2 ]
+                                | \     / |
+              (Fa0/23 to Fa0/23)|  \   /  |(Fa0/23 to Fa0/23)
+                                |   \ /   |
+                                |    X    |
+                                |   / \   |
+              (Fa0/24 to Fa0/24)|  /   \  |(Fa0/24 to Fa0/24)
+                                | /     \ |
+                            [ SWA ]     [ SWB ]
+                            / | | \     / | | \
+                           C1 C2 C3 C4 D1 D2 D3 D4
+                          (Fa0/1 to 4) (Fa0/1 to 4)
+
+
+=================### Central Switch
+
+spanning-tree vlan 1 root primary
+
+====================### SW1 Switch
+
+spanning-tree vlan 1 root secondary
+interface range fa0/23 - 24
+spanning-tree guard root
+exit
+
+===================### SW2 Switch
+
+interface range fa0/23 - 24
+spanning-tree guard root
+exit
+
+====================### SWA Switch
+
+interface range fa0/1 - 4
+spanning-tree portfast
+spanning-tree bpduguard enable
+exit
+interface range fa0/1 - 22
+switchport mode access
+switchport port-security
+switchport port-security maximum 2
+switchport port-security violation shutdown
+switchport port-security mac-address sticky
+exit
+interface range fa0/5 - 22
+shutdown
+exit
+
+=====================### SWB Switch
+
+interface range fa0/1 - 4
+spanning-tree portfast
+spanning-tree bpduguard enable
+exit
+interface range fa0/1 - 22
+switchport mode access
+switchport port-security
+switchport port-security maximum 2
+switchport port-security violation shutdown
+switchport port-security mac-address sticky
+exit
+interface range fa0/5 - 22
+shutdown
+exit
+
+=================Test the Root Bridge Configuration==========================
+--Central -> show spanning-tree  (look for line "This bridge is the root")
+
+=========================Test Port Security (MAC Learning)========================
+
+SWA -> show port-security interface fa0/1 	("Total MAC Addresses" = 0)
+
+PC C1 -> ping 10.1.1.11 
+
+SWA -> show port-security interface fa0/1 	("Total MAC Addresses" = 1)
+
