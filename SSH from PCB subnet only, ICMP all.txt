@@ -1,0 +1,71 @@
+QUESTION 19 Extended ACL — SSH from PCB subnet only, ICMP all
+
+==============================ADDRESSING TABLE
+
+Device Interface IP Address Subnet Mask Default GW
+RTA gig0/0 10.101.117.49 255.255.255.248 N/A
+RTA gig0/1 10.101.117.33 255.255.255.240 N/A
+RTA gig0/2 10.101.117.1 255.255.255.224 N/A
+PCA NIC 10.101.117.51 255.255.255.248 10.101.117.49
+PCB NIC 10.101.117.35 255.255.255.240 10.101.117.33
+SWA VLAN1 10.101.117.50 255.255.255.248 10.101.117.49
+SWB VLAN1 10.101.117.34 255.255.255.240 10.101.117.33
+SWC VLAN1 10.101.117.2 255.255.255.224 10.101.117.1
+
+
+===============================TOPOLOGY SETUP
+
+Place: 1 router RTA (1941 or 2911), 3 switches SWA/SWB/SWC (2960). Cable: PCA→SWA→RTA Gig0/0, PCB→SWB→RTA
+Gig0/1, SWC→RTA Gig0/2.
+ 
+
+----------------STEPS
+Step 1 — Configure IPs on RTA
+RTA(config)#
+interface gig0/0
+ip address 10.101.117.49 255.255.255.248
+no shutdown
+exit
+interface gig0/1
+ip address 10.101.117.33 255.255.255.240
+no shutdown
+exit
+interface gig0/2
+ip address 10.101.117.1 255.255.255.224
+no shutdown
+exit
+
+
+Step 2 — Configure SSH on SWC
+SWC(config)#
+ip domain-name ccna.com
+username Admin secret Adminpa55
+crypto key generate rsa
+! Enter 1024 when prompted
+ip ssh version 2
+line vty 0 4
+login local
+transport input ssh
+exit
+
+
+Step 3 — Configure ACL 199 on RTA Gig0/2 outbound
+Wildcard /28=0.0.0.15 (PCB subnet), /27=0.0.0.31 (SWC network). Applied outbound toward SWC.
+RTA(config)#
+access-list 199 permit tcp 10.101.117.32 0.0.0.15 10.101.117.0 0.0.0.31 eq 22
+access-list 199 permit icmp any any
+interface gig0/2
+ip access-group 199 out
+exit
+ 
+
+================================VERIFICATION
+PCB> ssh -l Admin 10.101.117.2 → Login success — PCB subnet permitted
+PCA> ssh -l Admin 10.101.117.2 → Timeout — PCA subnet not permitted
+PCA ping SWC → Success — ICMP permitted for all
+RTA# show access-lists 199 → Match counts > 0 on permit lines
+ 
+
+============================KEY POINTS
+• eq 22 = SSH port. Wildcard /28 = 0.0.0.15 (PCB subnet). Wildcard /27 = 0.0.0.31 (SWC network).
+• ACL on outbound Gig0/2 affects all traffic heading toward SWC subnet

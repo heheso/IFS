@@ -1,0 +1,118 @@
+QUESTION 12 ZPF Firewall on R3
+
+
+ADDRESSING TABLE
+Device 	Interface 	IP Address 	Subnet Mask 	Default GW
+R1 	gig0/0 		192.168.1.1 	255.255.255.0 				N/A
+R1 	se0/1/0 	10.1.1.1 	255.255.255.252 			N/A
+R2 	se0/1/0 	10.1.1.2 	255.255.255.252 				N/A
+R2 	se0/1/1 	10.2.2.2 	255.255.255.252 				N/A
+R3 	gig0/0 		192.168.3.1 	255.255.255.0 				N/A
+R3 	se0/1/0 	10.2.2.1 	255.255.255.252 
+				N/A
+PC-A (outside) NIC 192.168.1.3 255.255.255.0 192.168.1.1
+PC-C (inside) NIC 192.168.3.3 255.255.255.0 192.168.3.1
+
+=============================TOPOLOGY SETUP
+Place: 3 routers (1941), Switch S1 (PC-A side on R1), Switch S2 (PC-C side on R3). Cable serials R1↔R2↔R3. Gig0/0 on R3
+(facing PC-C LAN) → IN-ZONE. Se0/1/0 on R3 (facing WAN) → OUT-ZONE.
+
+
+----STEPS
+
+Step 1 — Configure IPs and static routes on all routers
+R1(config)#
+interface gig0/0
+ip address 192.168.1.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.1.1.1 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+ip route 10.2.2.0 255.255.255.252 10.1.1.2
+ip route 192.168.3.0 255.255.255.0 10.1.1.2
+
+R2(config)#
+interface se0/1/0
+ip address 10.1.1.2 255.255.255.252
+no shutdown
+exit
+interface se0/1/1
+ip address 10.2.2.2 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+ip route 192.168.1.0 255.255.255.0 10.1.1.1
+ip route 192.168.3.0 255.255.255.0 10.2.2.1
+
+R3(config)#
+interface gig0/0
+ip address 192.168.3.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.2.2.1 255.255.255.252
+no shutdown
+exit
+ip route 192.168.1.0 255.255.255.0 10.2.2.2
+ip route 10.1.1.0 255.255.255.252 10.2.2.2
+
+
+Step 2 — Enable security package on R3 and reload
+R3(config)#
+license boot module c1900 technology-package securityk9
+! Type yes when prompted
+
+R3#
+copy running-config startup-config
+reload
+! After reload log back in and enter configure terminal
+
+
+Step 3 — Create security zones, ACL, and class-map on R3
+The inside LAN on R3's side is 192.168.3.0/24.
+R3(config)#
+zone security IN-ZONE
+exit
+zone security OUT-ZONE
+exit
+access-list 101 permit ip 192.168.3.0 0.0.0.255 any
+class-map type inspect match-all IN-NET-CLASS-MAP
+match access-group 101
+exit
+
+
+Step 4 — Policy-map and zone-pair on R3
+R3(config)#
+policy-map type inspect IN-2-OUT-PMAP
+class type inspect IN-NET-CLASS-MAP
+inspect
+exit
+exit
+zone-pair security IN-2-OUT-ZPAIR source IN-ZONE destination OUT-ZONE
+service-policy type inspect IN-2-OUT-PMAP
+exit
+
+
+Step 5 — Assign interfaces to zones on R3
+R3(config)#
+interface gig0/0
+zone-member security IN-ZONE
+exit
+interface se0/1/0
+zone-member security OUT-ZONE
+exit
+
+
+=============================VERIFICATION
+R3# show zone security → IN-ZONE has Gig0/0 OUT-ZONE has Se0/1/0
+PC-C ping PC-A (inside→outside) → Success
+PC-A ping PC-C (outside→inside) → Timeout — no reverse policy
+
+
+=============================KEY POINTS
+• ZPF order: Zones → ACL → ClassMap → PolicyMap → ZonePair → Assign interfaces.
+• 'inspect' = stateful (allows return traffic). 'pass' = one-way stateless. 'drop' = block.
+• Security package must be installed before zone security commands exist.

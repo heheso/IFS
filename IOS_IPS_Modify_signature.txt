@@ -1,0 +1,139 @@
+QUESTION 11 IOS IPS — Enable, Configure, Modify Signature
+
+ =========================ADDRESSING TABLE ====================================
+Device Interface IP Address Subnet Mask Default GW
+R1	 gig0/0    192.168.1.1 	    255.255.255.0 N/A
+R1 se0/1/0 10.1.1.1 255.255.255.252 N/A
+R2 se0/1/0 10.1.1.2 255.255.255.252 N/A
+R2 se0/1/1 10.2.2.2 255.255.255.252 N/A
+R3 gig0/0 192.168.3.1 255.255.255.0 N/A
+R3 se0/1/0 10.2.2.1 255.255.255.252 N/A
+Syslog NIC 192.168.1.50 255.255.255.0 192.168.1.1
+PC-A NIC 192.168.1.2 255.255.255.0 192.168.1.1
+PC-C NIC 192.168.3.2 255.255.255.0 192.168.3.1
+
+
+==============================TOPOLOGY SETUP=============================
+Place: 3 routers (1941), Switch S1 (Syslog + PC-A side on R1), Switch S2 (PC-C side on R3). Cable serials R1↔R2↔R3 (DCE
+on R1 and R2). Verify baseline pings in both directions before enabling IPS.
+
+----STEPS
+Step 1 — Configure IPs and OSPF routing on all routers
+
+R1(config)#
+interface gig0/0
+ip address 192.168.1.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.1.1.1 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+router ospf 1
+network 192.168.1.0 0.0.0.255 area 0
+network 10.1.1.0 0.0.0.3 area 0
+exit
+
+R2(config)#
+interface se0/1/0
+ip address 10.1.1.2 255.255.255.252
+no shutdown
+exit
+interface se0/1/1
+ip address 10.2.2.2 255.255.255.252
+clock rate 128000
+no shutdown
+exit
+router ospf 1
+network 10.1.1.0 0.0.0.3 area 0
+network 10.2.2.0 0.0.0.3 area 0
+exit
+
+R3(config)#
+interface gig0/0
+ip address 192.168.3.1 255.255.255.0
+no shutdown
+exit
+interface se0/1/0
+ip address 10.2.2.1 255.255.255.252
+no shutdown
+exit
+router ospf 1
+network 192.168.3.0 0.0.0.255 area 0
+network 10.2.2.0 0.0.0.3 area 0
+exit
+
+
+----Step 2 — Enable security package on R1 and reload
+R1(config)#
+license boot module c1900 technology-package securityk9
+! Type yes when prompted
+
+R1#
+copy running-config startup-config
+reload
+! After reload log back in and enter configure terminal
+
+
+----Step 3 — Set clock, create IPS directory, configure IPS rule
+R1#
+clock set 10:20:00 10 january 2014
+mkdir ipsdir
+! Press Enter to confirm directory creation
+
+R1(config)#
+ip ips config location flash:ipsdir
+ip ips name iosips
+ip ips notify log
+service timestamps log datetime msec
+logging host 192.168.1.50
+
+
+----Step 4 — Configure signature categories (retire all, then enable ios_ips basic)
+
+R1(config)#
+ip ips signature-category
+category all
+retired true
+exit
+category ios_ips basic
+retired false
+exit
+exit
+! Press Enter to confirm when prompted
+
+
+----Step 5 — Apply IPS rule to Gig0/0 outbound
+R1(config)#
+interface gig0/0
+ip ips iosips out
+exit
+Step 6 — Modify signature 2004 — alert and drop ICMP echo requests
+R1(config)#
+ip ips signature-definition
+signature 2004 0
+status
+retired false
+enabled true
+exit
+engine
+event-action produce-alert
+event-action deny-packet-inline
+exit
+exit
+exit
+! Press Enter to confirm when prompted
+
+============================ VERIFICATION
+R1# show ip ips interfaces
+
+→ GigabitEthernet0/0 Outbound: iosips
+PC-C ping PC-A → Timeout (ICMP echo request type 8 dropped by sig 2004)
+PC-A ping PC-C → Success (only REQUEST is matched, not REPLY)
+Syslog server → SYSLOG tab → %IPS-4-SIGNATURE: Sig:2004 entries visible
+ 
+==========KEY POINTS
+• Sig 2004 = echo REQUEST. Sig 2000 = echo REPLY. Do not modify the wrong one.
+• 'out' on Gig0/0 = inspect traffic going toward the LAN from the WAN direction.
+• Retire ALL first, then un-retire ios_ips basic — thousands of active sigs overload the router.
