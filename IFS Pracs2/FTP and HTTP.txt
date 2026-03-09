@@ -1,0 +1,36 @@
+Q.2 Create the following topology and
+Configure an ACL that will permit FTP and HTTP access on R1. 
+Verify the ACL implementation. PC1 (Only FTP). PC2(Only HTTP)
+
+Topology and configurations will be given
+
+=================================== Verify the ACL implementation PC1 (Only FTP). ====================================
+
+---Router0
+en
+conf t
+access-list 100 permit tcp 172.22.34.64 0.0.0.31 host 172.22.34.62 eq ftp
+access-list 100 permit icmp 172.22.34.64 0.0.0.31 host 172.22.34.62
+int g0/0
+ip access-group 100 in
+
+---PC1 command prompt
+ftp 172.22.34.62   //it will work
+ping 172.22.34.97   // it will give host unreachable
+http://172.22.34.62   //it will be request timeout
+
+=================================== Verify the ACL implementation PC2 (Only HTTP). ====================================
+
+---Router0
+en
+conf t
+ip access-list extended HTTP_ONLY
+permit tcp 172.22.34.96 0.0.0.15 host 172.22.34.62 eq www
+permit icmp 172.22.34.96 0.0.0.15 host 172.22.34.62
+int g0/1
+ip access-group HTTP_ONLY in
+
+---PC1 command prompt
+ftp 172.22.34.62   //it will not work
+ping 172.22.34.97   // it will give host unreachable
+http://172.22.34.62   //it will work

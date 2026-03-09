@@ -1,0 +1,65 @@
+Q.6 Create the following topology and perform the configurations listed below:
+Configure an ACL that will permit one LAN to remotely access a device in another LAN using the SSH Protocol.
+Besides ICMP, all traffic from other networks is denied.
+Verify the ACL implementation.
+
+Topology and configurations will be given
+
+======================================= Configure Switch ============================================
+
+For switches
+enable
+configure terminal
+
+---SWA
+interface vlan 1
+ip address 10.101.117.50 255.255.255.248
+no shutdown
+exit
+ip default-gateway 10.101.117.49
+
+---SWB
+interface vlan 1
+ip address 10.101.117.34 255.255.255.240
+no shutdown
+exit
+ip default-gateway 10.101.117.33
+
+---SWC
+interface vlan 1
+ip address 10.101.117.2 255.255.255.224
+no shutdown
+exit
+ip default-gateway 10.101.117.1
+
+======================================= Configure SSH on RTA ============================================
+
+---R1
+en
+conf t
+ip domain-name ccnasecurity.com
+username admin secret cisco123
+crypto key generate rsa
+ -1024
+ip ssh version 2
+line vty 0 4
+login local
+transport input ssh
+end
+
+======================================= Create ACL to allow SSH =======================================
+conf t
+ip access-list extended LAN_SSH
+permit tcp 10.101.117.32 0.0.0.15 10.101.117.48 0.0.0.7 eq 22
+permit icmp any any
+deny ip any any
+exit
+
+int gig0/1
+ip access-group LAN_SSH in
+exit
+(in enable mode)
+show access-lists LAN_SSH
+
+---PCB
+ssh -l admin 10.101.117.49

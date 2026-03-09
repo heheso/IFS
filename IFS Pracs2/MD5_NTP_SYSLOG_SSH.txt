@@ -1,0 +1,127 @@
+Q.1 Create the following topology and
+Configure OSPF MD5 authentication.
+Configure NTP and configure routers to log messages to the
+Syslog Server.
+
+Q.5 Create the following topology with OSPF routing 
+Configure NTP.
+Configure Routers to log messages to the syslog server. 
+Configure R3 to support SSH connections.
+
+Topology and configurations will be given
+
+=================================== routers connections ====================================
+set hostnames R1, R2, R3
+en
+conf t
+
+---R1
+
+router ospf 1
+network 192.168.1.0 0.0.0.255 area 0
+network 10.1.1.0 0.0.0.3 area 0
+
+---R2
+router ospf 2
+network 10.1.1.0 0.0.0.3 area 0
+network 10.2.2.0 0.0.0.3 area 0
+
+---R3
+router ospf 3
+network 10.2.2.0 0.0.0.3 area 0
+network 192.168.3.0 0.0.0.255 area 0
+
+
+Ping
+-- PCA
+ping 192.168.3.5
+
+-- PCC
+ping 192.168.1.6
+
+=============== Configure OSPF MD5 authentication for all the routers in area 0. ===========
+en
+conf t
+
+--R1
+router ospf 1
+area 0 authentication message-digest
+
+--R2
+router ospf 2
+area 0 authentication message-digest
+
+--R3
+router ospf 3
+area 0 authentication message-digest
+
+
+--R1
+interface s0/1/0
+ip ospf message-digest-key 1 md5 MD5pa55
+
+--R2
+interface s0/1/0
+ip ospf message-digest-key 1 md5 MD5pa55
+interface s0/1/1
+ip ospf message-digest-key 1 md5 MD5pa55
+
+-R3
+interface s0/1/0
+ip ospf message-digest-key 1 md5 MD5pa55
+
+
+--R1(in enable mode)
+**DO THE SAME FOR R2 and R3***
+show ip ospf interface
+
+================================= Part 2: Configure NTP ==============================
+--------------- Configure NTP authentication on the routers. ---------
+in NTP server/PCA,Service -> NTP tab
+enable authentication
+key: 1
+pswd: NTPpa55
+
+ALL ROUTERS
+en
+conf t
+ntp authenticate
+ntp trusted-key 1
+ntp authentication-key 1 md5 NTPpa55
+
+
+--------------------- Configure routers to timestamp log messages. ----------------------
+ALL ROUTERS
+service timestamps log datetime msec
+
+
+--R1(in enable mode)
+show clock
+
+========================== Configure Routers to Log Messages to the Syslog Server =============
+
+ALL ROUTERS
+logging host 192.168.1.6
+ex
+showing logging
+
+OP
+GO TO PCB -> Services -> SYSLOG -> The messages will appear sent from R1,2,3
+
+========================== Configure Routers to Log Messages to the Syslog Server =============
+
+---R3
+en
+conf t
+username admin secret cisco123
+ip domain-name ccnasecurity.com
+crypto key generate rsa
+ -1024
+line vty 0 4
+login local
+transport input ssh
+end
+
+---PCC
+ssh -l admin 192.168.3.1    //Will work
+telnet 192.168.3.1  //not work

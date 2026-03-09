@@ -1,0 +1,96 @@
+Q.7 Create the following topology and 
+Assign the Central switch as the root bridge.
+Secure spanning-tree parameters to prevent STP manipulation attacks.
+Enable port security to prevent CAM table overflow attacks.
+
+Topology and configurations will be given
+
+==============================Root Bridge ============================
+
+---Central
+en
+conf t
+spanning-tree vlan 1 root primary
+
+---SW1
+en
+conf t
+spanning-tree vlan 1 root secondary
+
+---Central
+en
+show spanning-tree
+
+============================ STP ======================================
+
+---SWA
+en
+conf t
+interface range f0/1 - 4
+spanning-tree portfast
+spanning-tree bpduguard enable
+exit
+
+
+---SWB
+en
+conf t
+interface range f0/1 - 4
+spanning-tree portfast
+spanning-tree bpduguard enable
+exit
+
+---SW1
+en
+conf t
+interface range f0/23 - 24
+spanning-tree guard root
+exit
+
+---SW2
+en
+conf t
+interface range f0/23 - 24
+spanning-tree guard root
+exit
+
+================================= Enable/Disable Ports ===========================
+
+---SWA
+en
+conf t
+interface range f0/1 - 22
+switchport mode access
+switchport port-security
+switchport port-security maximum 2
+switchport port-security violation shutdown
+switchport port-security mac-address sticky
+exit
+
+---SWB
+en 
+conf t
+interface range f0/1 - 22
+switchport mode access
+switchport port-security
+switchport port-security maximum 2
+switchport port-security violation shutdown
+switchport port-security mac-address sticky
+exit
+
+---SWA (enable mode)
+show port-security interface f0/1
+
+Ping C1 to C2
+
+---SWA
+configure terminal
+interface range f0/5 - 22
+shutdown
+exit
+
+---SWB
+configure terminal
+interface range f0/5 - 22
+shutdown
+exit

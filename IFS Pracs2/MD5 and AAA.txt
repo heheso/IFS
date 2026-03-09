@@ -1,0 +1,52 @@
+Q.4 Create the following topology and perform the configurations listed below:
+Configure OSPF MD5 authentication.
+Configure a local user account on R1.
+Configure authentication on the console and vty lines using local AAA.
+Verify local AAA authentication from the R1 console, the PC0 client, and the PC1 client.
+
+Topology and configurations will be given
+
+=================================== Configure OSPF MD5 authentication ====================================
+hostname R1
+en
+conf t
+
+---R1
+
+router ospf 1
+network 192.168.1.0 0.0.0.255 area 0
+area 0 authentication message-digest
+exit
+
+(in enable mode)
+show ip ospf interface
+
+================================== Create Local User Account =============================================
+---R1
+en 
+conf t
+username admin secret cisco123
+
+================================== Enable AAA ============================================================
+aaa new-model
+aaa authentication login default local
+
+================================== Console Line Configuration Mode ===========================================================
+line console 0
+login authentication default
+end
+
+================================== VTY Line Configuration Mode ===========================================================
+ip domain-name ccnasecurity.com
+crypto key generate rsa
+ -1024
+aaa authentication login SSH-LOGIN local 
+line vty 0 4
+login authentication SSH-LOGIN
+transport input ssh
+end
+
+---PC0
+ssh -l admin 192.168.1.1
+
+
